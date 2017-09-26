@@ -175,6 +175,15 @@ let is_a_value x =
    |TmZero -> true
    |x -> false;;
 
+(* identify which terms are numeric values *)
+let rec is_a_numeric_value x =
+    match x with
+    |TmSucc(t1) ->
+      let t1' = is_a_numeric_value t1 in
+        t1'
+    |TmZero -> true
+    |x -> false;;
+
 exception NO_RULE;;
 
 (* single small step eval EXPAND TO INCLUDE arithmetic *)
@@ -185,6 +194,19 @@ let rec eval_step t =
   |TmIf(t1,t2,t3) ->
      let t1' = eval_step t1 in
        TmIf(t1',t2,t3)
+  |TmSucc(t1) ->
+    let t1' = eval_step t1 in 
+      TmSucc(t1')
+  |TmPred(TmZero) -> TmZero
+  |TmPred(t1) ->
+    let t1' = eval_step t1 in 
+      TmPred(t1')
+  |TmIsZero(TmZero) -> TmTrue
+  |TmIsZero(t1) ->
+    let t1' = eval_step t1 in 
+      TmIsZero(t1')
+  |TmPred(TmSucc(nv1)) when is_a_numeric_value nv1 -> nv1
+  |TmIsZero(TmSucc(nv1)) when (is_a_numeric_value nv1) -> TmFalse 
   |_ -> raise NO_RULE;;
 
 (* and the evaluation sequences it induces *)
@@ -193,6 +215,8 @@ let rec eval_step t =
 
 let rec eval t =
   if (is_a_value t)
+  then t
+  else if (is_a_numeric_value t)
   then t
   else let t' = eval_step t in
     eval t';;
@@ -233,14 +257,14 @@ let rec ss_big_step t =
     match t with
     |TmTrue -> TmTrue
     |TmFalse -> TmFalse
-    |TmIf(t1,t2,t3)  when (ss_big_step t1 = TmTrue) ->
+    |TmIf(t1,t2,t3) when (ss_big_step t1 = TmTrue) ->
        (ss_big_step t2)
     |TmIf(t1,t2,t3) when (ss_big_step t1 = TmFalse) ->
        (ss_big_step t3)
     |_ -> TmError;;
 
 (* some examples *)
-print_string "\n\n******* SOME EXAMPLES ************";;
+(* print_string "\n\n******* SOME EXAMPLES ************";; *)
 is_a_value TmTrue;;
 is_a_value (TmIf(TmTrue,TmFalse,TmTrue));;
 big_step TmTrue;;
@@ -249,7 +273,6 @@ big_step (TmIf(TmIf(TmTrue,TmFalse,TmTrue),TmTrue,TmFalse));;
 eval (TmIf(TmIf(TmTrue,TmFalse,TmTrue),TmTrue,TmFalse));;
 eval_all (TmPred(TmTrue));;
 eval (TmPred(TmTrue));; (* will generate error: does'nt reduce to a value *)
-
 
 (* infix composition *)
 let ($) f g x = f (g x)
