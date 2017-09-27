@@ -150,17 +150,21 @@ let rec   aux_parse tokens = (* parse if..then..else terms *)
       in (TmIf (t1,t2,t3),rest3)
       |x ->aux_parse_subterm x
 and
-    aux_parse_subterm tokens = 
+  aux_parse_subterm tokens = 
   match tokens with
     |[] -> (TmError,[])
     |("("::rest) ->
       let (tm, remainder) = aux_parse rest in
       let (tok_rparen::remainder_after_rparen) = remainder in
-	(tm,remainder_after_rparen) (* throw away right parenthesis *)
+        (tm,remainder_after_rparen) (* throw away right parenthesis *)
+
     |("true"::tokens_rest) -> (TmTrue,tokens_rest)
     |("false"::tokens_rest) -> (TmFalse,tokens_rest)
-    |x -> ((print_list (["x = "]@x)); (TmError, []));; (* debug errors *)
+    |("0"::tokens_rest) -> (TmZero, tokens_rest)
 
+    |("succ"::t1::tokens_rest) -> (TmSucc, tokens_rest)
+
+    |x -> ((print_list (["x = "]@x)); (TmError, []));; (* debug errors *)
 
 (* parse:string -> term *)
 let parse str =  fst (aux_parse (lexx str));;
@@ -244,12 +248,17 @@ let rec big_step t =
     |TmTrue -> TmTrue
     |TmFalse -> TmFalse
     |TmIf(t1,t2,t3) ->
-       if (big_step t1 = TmTrue) then
-	 big_step t2
-       else
-	 if (big_step t1 = TmFalse)
-	 then big_step t3
-	 else raise BAD_GUARD
+      if (big_step t1 = TmTrue)
+        then big_step t2
+      else
+      if (big_step t1 = TmFalse)
+        then big_step t3
+      else raise BAD_GUARD
+    |TmSucc(t1) ->
+      if is_a_numeric_value t1
+        then
+      else 
+    |
     |_ -> raise NO_RULE;;
 
 (* slightly slicker *)
