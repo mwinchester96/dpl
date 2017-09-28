@@ -138,7 +138,7 @@ let lexx x = aux_lexx (explode x);;
  * calls aux_parse on de-parenthesized terms
  *)
 (* aux_parse : string list -> term * string list = <fun> *)
-let rec   aux_parse tokens = (* parse if..then..else terms *)
+let rec aux_parse tokens = (* parse if..then..else terms *)
   match tokens with
     |[] -> (TmError,[])
     |("if"::rest) -> 
@@ -148,7 +148,13 @@ let rec   aux_parse tokens = (* parse if..then..else terms *)
       let (tok_else::rest_else) = rest2 in (* throw away else *)
       let (t3,rest3) = aux_parse_subterm rest_else
       in (TmIf (t1,t2,t3),rest3)
-      |x ->aux_parse_subterm x
+    |("succ"::rest) ->
+      let (t1, rest1) = aux_parse_subterm rest in (TmSucc (t1),rest1)
+    |("pred"::rest) -> 
+      let (t1, rest1) = aux_parse_subterm rest in (TmPred (t1),rest1)
+    |("iszero"::rest) -> 
+      let (t1, rest1) = aux_parse_subterm rest in (TmIsZero (t1),rest1)
+    |x ->aux_parse_subterm x
 and
   aux_parse_subterm tokens = 
   match tokens with
@@ -157,13 +163,9 @@ and
       let (tm, remainder) = aux_parse rest in
       let (tok_rparen::remainder_after_rparen) = remainder in
         (tm,remainder_after_rparen) (* throw away right parenthesis *)
-
     |("true"::tokens_rest) -> (TmTrue,tokens_rest)
     |("false"::tokens_rest) -> (TmFalse,tokens_rest)
     |("0"::tokens_rest) -> (TmZero, tokens_rest)
-
-    |("succ"::t1::tokens_rest) -> (TmSucc, tokens_rest)
-
     |x -> ((print_list (["x = "]@x)); (TmError, []));; (* debug errors *)
 
 (* parse:string -> term *)
@@ -247,18 +249,31 @@ let rec big_step t =
   match t with
     |TmTrue -> TmTrue
     |TmFalse -> TmFalse
+    |TmZero -> TmZero
+
+    |TmSucc(t1) when (is_a_numeric_value (big_step t1)) -> 
+      let nv1 = big_step t1 in TmSucc(nv1)
+
+    |TmPred(t1) when (big_step t1 = TmZero) -> TmZero
+    |TmPred(t1) ->
+      match t1 with
+        |TmSucc(nv1) when (is_a_numeric_value nv1) -> nv1
+
+
+    |TmIsZero(t1) -> 
+      if (big_step t1 = 0) 
+        then TmTrue
+      else
+      match t1 with
+        |TmSucc(t2) -> TmFalse
+
     |TmIf(t1,t2,t3) ->
       if (big_step t1 = TmTrue)
         then big_step t2
       else
       if (big_step t1 = TmFalse)
         then big_step t3
-      else raise BAD_GUARD
-    |TmSucc(t1) ->
-      if is_a_numeric_value t1
-        then
-      else 
-    |
+      else raise BAD_GUARD 
     |_ -> raise NO_RULE;;
 
 (* slightly slicker *)
@@ -273,7 +288,7 @@ let rec ss_big_step t =
     |_ -> TmError;;
 
 (* some examples *)
-(* print_string "\n\n******* SOME EXAMPLES ************";; *)
+print_string "\n\n******* SOME EXAMPLES ************";;
 is_a_value TmTrue;;
 is_a_value (TmIf(TmTrue,TmFalse,TmTrue));;
 big_step TmTrue;;
@@ -281,8 +296,14 @@ big_step (TmIf(TmTrue,TmFalse,TmTrue));;
 big_step (TmIf(TmIf(TmTrue,TmFalse,TmTrue),TmTrue,TmFalse));;
 eval (TmIf(TmIf(TmTrue,TmFalse,TmTrue),TmTrue,TmFalse));;
 eval_all (TmPred(TmTrue));;
-eval (TmPred(TmTrue));; (* will generate error: does'nt reduce to a value *)
+(*eval (TmPred(TmTrue));; (* will generate error: does'nt reduce to a value *) *)
 
+print_string "\n\n******* NEW EXAMPLES ************";;
+eval (TmIsZero(TmZero));;
+is_a_numeric_value TmZero;;
+is_a_numeric_value (eval(TmSucc(TmZero)));;
+
+print_string "\n\n******* Parsing and Evaluating Test ************";;
 (* infix composition *)
 let ($) f g x = f (g x)
 
@@ -291,8 +312,12 @@ let eval_parse = eval $ parse;;
 let big_eval_parse = big_step $ parse;;
 let ss_big_eval_parse = ss_big_step $ parse;;
 
-
 (* some examples to work with *)
+print_string "\n\n******* New Stuff Test Parsing/Evaluating ************";;
+eval_parse "if (iszero 0) then true else false";;
+eval_parse "if (iszero (pred (pred 0))) then true else false";;
+
+print_string "\n\n******* Test Parsing/Evaluating ************";;
 
 eval_parse "if (if true than false else true) then false else true";;
 big_eval_parse "if (if true than false else true) then false else true";;
